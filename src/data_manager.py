@@ -30,7 +30,7 @@ class Mars(object):
     Args:
         min_seq_len (int): tracklet with length shorter than this value will be discarded (default: 0).
     """
-    root = './data/mars'
+    root = '../data/mars'
     train_name_path = osp.join(root, 'info/train_name.txt')
     test_name_path = osp.join(root, 'info/test_name.txt')
     track_train_info_path = osp.join(root, 'info/tracks_train_info.mat')
@@ -168,7 +168,7 @@ class DukeMTMCVidReID(object):
     """
     dataset_dir = 'dukemtmc-vidreid'
 
-    def __init__(self, root='data', min_seq_len=0, verbose=True, **kwargs):
+    def __init__(self, root='../data', min_seq_len=0, verbose=True, **kwargs):
         self.dataset_dir = osp.join(root, self.dataset_dir)
         self.dataset_url = 'http://vision.cs.duke.edu/DukeMTMC/data/misc/DukeMTMC-VideoReID.zip'
         self.train_dir = osp.join(self.dataset_dir, 'DukeMTMC-VideoReID/train')
@@ -328,7 +328,7 @@ class iLIDSVID(object):
     Args:
         split_id (int): indicates which split to use. There are totally 10 splits.
     """
-    root = './data/ilids-vid'
+    root = '../data/ilids-vid'
     dataset_url = 'http://www.eecs.qmul.ac.uk/~xiatian/iLIDS-VID/iLIDS-VID.tar'
     data_dir = osp.join(root, 'i-LIDS-VID')
     split_dir = osp.join(root, 'train-test people splits')
@@ -497,7 +497,7 @@ class PRID(object):
         split_id (int): indicates which split to use. There are totally 10 splits.
         min_seq_len (int): tracklet with length shorter than this value will be discarded (default: 0).
     """
-    root = './data/prid2011'
+    root = '../data/prid2011'
     dataset_url = 'https://files.icg.tugraz.at/f/6ab7e8ce8f/?raw=1'
     split_path = osp.join(root, 'splits_prid2011.json')
     cam_a_path = osp.join(root, 'prid_2011', 'multi_shot', 'cam_a')

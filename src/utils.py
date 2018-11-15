@@ -28,6 +28,31 @@ def freeze_weights(to_be_freezed):
         for param in module.parameters():
             param.requires_grad = False
 
+def set_default_device(args):
+    # set default device
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_devices
+    use_gpu = torch.cuda.is_available()
+    if args.use_cpu: use_gpu = False
+
+    if use_gpu:
+        import torch.backends.cudnn as cudnn
+        print("Currently using GPU {}".format(args.gpu_devices))
+        cudnn.benchmark = True
+        torch.cuda.manual_seed_all(args.seed)
+    else:
+        print("Currently using CPU (GPU is highly recommended)")
+    
+    return use_gpu
+
+def init_logger(args):
+    if not args.evaluate:
+        sys.stdout = Logger(osp.join(args.save_dir, 'log_train.txt'))
+    else:
+        sys.stdout = Logger(osp.join(args.save_dir, 'log_test.txt'))
+
+    print("\nArgs:{}\n".format(args))
+    
+
 def load_pretrained_model(model, pretrained_model_path):
     '''To load the pretrained model considering the number of keys and their sizes
     
@@ -111,9 +136,9 @@ def get_features(model, imgs, test_num_tracks):
     for test_imgs in mit.chunked(imgs, test_num_tracks):
         current_test_imgs = torch.stack(test_imgs)
         num_current_test_imgs = current_test_imgs.shape[0]
-        features = model(current_test_imgs)
-        features = features.view(num_current_test_imgs, -1)
-        all_features.append(features)
+        video_features, _ = model(current_test_imgs)
+        video_features = video_features.view(num_current_test_imgs, -1)
+        all_features.append(video_features)
     
     return torch.cat(all_features)
 
@@ -190,11 +215,4 @@ def write_json(obj, fpath):
     mkdir_if_missing(osp.dirname(fpath))
     with open(fpath, 'w') as f:
         json.dump(obj, f, indent=4, separators=(',', ': '))
-
-
-
-
-
-
-
 
