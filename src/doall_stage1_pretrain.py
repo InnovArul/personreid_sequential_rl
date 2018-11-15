@@ -1,6 +1,6 @@
 from __future__ import print_function, absolute_import
 import os, sys, time, datetime, argparse
-import os.path as osp, more_itertools as mit
+import os.path as osp, numpy as np, more_itertools as mit
 
 # import torch related packages
 import torch, torch.nn as nn
