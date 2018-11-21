@@ -6,7 +6,7 @@ import shutil
 import json
 import os.path as osp
 import more_itertools as mit
-import torch
+import torch, visdom
 
 def mkdir_if_missing(directory):
     """to create a directory
@@ -142,14 +142,34 @@ def get_features(model, imgs, test_num_tracks):
     
     return torch.cat(all_features)
 
+def get_visdom_for_current_run(run_name):
+    envname = get_currenttime_prefix() + '_' + run_name
+    vis = visdom.Visdom(env=envname)    
+
+    # log file name
+    vis.log_to_filename = os.path.join('../scratch', envname)
+    
+    return vis
 
 class AverageMeter(object):
     """Computes and stores the average and current value.
        
        Code imported from https://github.com/pytorch/examples/blob/master/imagenet/main.py#L247-L262
     """
-    def __init__(self):
+    def __init__(self, vis, title, xlabel, ylabel):
         self.reset()
+        self.vis = vis
+        self.value_plot = vis.line([0], opts={
+            'title':title + '_current_value',
+            'xlabel':xlabel,
+            'ylabel':ylabel
+        })
+
+        self.avg_plot = vis.line([0], opts={
+            'title':title + '_average',
+            'xlabel':xlabel,
+            'ylabel':ylabel
+        })        
 
     def reset(self):
         self.val = 0
@@ -162,6 +182,8 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+        self.vis.line([self.val], [self.count], win=self.value_plot, update='append')
+        self.vis.line([self.avg], [self.count], win=self.avg_plot, update='append')
 
 def save_checkpoint(state, is_best, fpath='checkpoint.pth.tar'):
     mkdir_if_missing(osp.dirname(fpath))

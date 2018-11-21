@@ -9,7 +9,7 @@ from torch.optim import lr_scheduler
 # import other miscellaneous things
 from cmd_options_parser import stage1_parse_cmd_options
 from losses import CrossEntropyLabelSmooth, TripletLoss
-from utils import set_default_device, init_logger, get_currenttime_prefix
+from utils import set_default_device, init_logger, get_currenttime_prefix, save_checkpoint
 from project_utils import init_data_loaders, init_model, train, test
 
 if __name__ == '__main__':
@@ -66,7 +66,7 @@ if __name__ == '__main__':
         
         if args.eval_step > 0 and (epoch+1) % args.eval_step == 0 or (epoch+1) == args.max_epoch:
             print("==> Test")
-            rank1 = test(model, queryloader, galleryloader, args.pool, use_gpu)
+            rank1 = test(model, queryloader, galleryloader, use_gpu, args)  
             is_best = rank1 > best_rank1
             if is_best: best_rank1 = rank1
 

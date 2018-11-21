@@ -10,7 +10,7 @@ import numpy as np
 
 # import data managers
 import data_manager
-from video_loader import VideoDataset
+from video_loader import VideoDataset, PairVideoDataset
 import transforms as T
 from samplers import RandomIdentitySampler
 
@@ -18,7 +18,7 @@ from samplers import RandomIdentitySampler
 import models
 from models.alexnet import AlexNet
 from models.ResNet50 import ResNet50TP
-
+from models.RL_model import Agent
 
 def init_data_loaders(args, use_gpu=True):
     print("Initializing dataset {}".format(args.dataset))
@@ -61,6 +61,46 @@ def init_data_loaders(args, use_gpu=True):
 
     return dataset, trainloader, queryloader, galleryloader
 
+def init_data_loaders_rl_training(args, use_gpu=True):
+    print("Initializing dataset {}".format(args.dataset))
+    dataset = data_manager.init_dataset(name=args.dataset)
+
+    transform_train = T.Compose([
+        T.Random2DTranslation(args.height, args.width),
+        T.RandomHorizontalFlip(),
+        T.ToTensor(),
+        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+
+    transform_test = T.Compose([
+        T.Resize((args.height, args.width)),
+        T.ToTensor(),
+        T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+
+    pin_memory = True if use_gpu else False
+
+    trainloader = DataLoader(
+        PairVideoDataset(dataset.train, seq_len=args.seq_len, sample='random',transform=transform_train),
+        # sampler=RandomIdentitySampler(dataset.train, num_instances=args.num_instances),
+        batch_size=args.train_batch, num_workers=args.workers,
+        pin_memory=pin_memory, drop_last=True,
+    )
+
+    queryloader = DataLoader(
+        VideoDataset(dataset.query, seq_len=args.seq_len, sample='dense', transform=transform_test),
+        batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
+        pin_memory=pin_memory, drop_last=False,
+    )
+
+    galleryloader = DataLoader(
+        VideoDataset(dataset.gallery, seq_len=args.seq_len, sample='dense', transform=transform_test),
+        batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
+        pin_memory=pin_memory, drop_last=False,
+    )
+
+    return dataset, trainloader, queryloader, galleryloader
+
 def init_model(args, num_train_pids):
 
     print("Initializing model: {}".format(args.arch))
@@ -77,6 +117,16 @@ def init_model(args, num_train_pids):
     
     return model
 
+
+def init_model_rl_training(args, num_train_pids):
+    base_model = init_model(args, num_train_pids)
+    agent_model = Agent(base_model, args)
+
+    # pretrained model loading
+    if args.pretrained_model_rl is not None:
+        agent_model = load_pretrained_model(agent_model, args.pretrained_model_rl)
+    
+    return agent_model
 
 def train(model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu, args):
     model.train()

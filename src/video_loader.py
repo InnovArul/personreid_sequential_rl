@@ -20,7 +20,6 @@ def read_image(img_path):
             pass
     return img
 
-
 class VideoDataset(Dataset):
     """Video Person ReID Dataset.
     Note batch data has shape (batch, seq_len, channel, height, width).
@@ -143,8 +142,86 @@ class VideoDataset(Dataset):
             raise KeyError("Unknown sample method: {}. Expected one of {}".format(self.sample, self.sample_methods))
 
 
+class PairVideoDataset(VideoDataset):
+    """Video Person ReID Dataset.
+    Note batch data has shape (batch, seq_len, channel, height, width).
+    """
 
+    def __init__(self, dataset, seq_len=15, sample='evenly', transform=None):
+        super().__init__(dataset=dataset, seq_len=seq_len, sample=sample, transform=transform)
+        
+        # in dataset, each instance contains img paths, person id, cam id
+        # arrange the details based on pid for pairwise training
+        self.pid_based_dataset = self.arrange_based_on_pid()
+        self.pids = list(self.pid_based_dataset.keys())
+        print('In total ', len(self.pids), ' persons' )
+    
+    def arrange_based_on_pid(self):
+        pid_based_dataset = {}
 
+        #  for each instance of the dataseet, arrange it based on pid
+        for index in range(len(self.dataset)):
+            img_paths, pid, camid = self.dataset[index]
 
+            # init empty buffer if key does not exist
+            if pid not in pid_based_dataset:
+                pid_based_dataset[pid] = {}
+            
+            if camid not in pid_based_dataset[pid]:
+                pid_based_dataset[pid][camid] = []
+            
+            # store the indices in the buffer
+            pid_based_dataset[pid][camid].append(index)
+        
+        # remove the persons that appear in only one cam
+        only_one_cam_persons = []
+        for pid in pid_based_dataset.keys():
+            cams = list(pid_based_dataset[pid].keys())
+            if len(cams) == 1:
+                only_one_cam_persons.append(pid)
+        
+        print('these IDs are removed from training', only_one_cam_persons)
+        for pid in only_one_cam_persons:
+            del pid_based_dataset[pid]
+        
+        return pid_based_dataset
 
+    def __len__(self):
+        # for each person, consider positive and negative pairs
+        return len(self.pids) * 2
+    
+    def __getitem__(self, index):
+        # select the person
+        # print(len(self.pids), index, index//2)
+        pid1 = self.pids[index//2]
+        camid1 = np.random.choice(list(self.pid_based_dataset[pid1].keys()))
+        
+        # even indices are of same pid, odd indices are different pid
+        if index%2 == 0:
+            # select same pid frames
+            pid2 = pid1
+            list_except_camid1 = list(self.pid_based_dataset[pid1].keys())
+            # print(pid1, list_except_camid1)
+            list_except_camid1.remove(camid1)
+            # print(pid1, list_except_camid1)
+            camid2 = np.random.choice(list_except_camid1)
+            assert (pid1 == pid2) and (camid1 != camid2)
+        else:
+            # select different pid frames
+            list_except_pid1 = list(self.pids)
+            list_except_pid1.remove(pid1)
+            pid2 = np.random.choice(list_except_pid1)
+            camid2 = np.random.choice(list(self.pid_based_dataset[pid2].keys()))
+            assert pid1 != pid2
 
+        person1_img_index = np.random.choice(self.pid_based_dataset[pid1][camid1])
+        person2_img_index = np.random.choice(self.pid_based_dataset[pid2][camid2])
+        img_frames1, pid1_returned, camid1_returned = super().__getitem__(person1_img_index)
+        img_frames2, pid2_returned, camid2_returned = super().__getitem__(person2_img_index)
+
+        assert pid1_returned == pid1, 'pid1 equality assertion failed'
+        assert camid1_returned == camid1, 'camid1 equality assertion failed'
+        assert pid2_returned == pid2, 'pid2 equality assertion failed'
+        assert camid2_returned == camid2, 'camid2 equality assertion failed'
+
+        return img_frames1, pid1, img_frames2, pid2
