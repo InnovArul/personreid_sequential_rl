@@ -18,7 +18,8 @@ from samplers import RandomIdentitySampler
 import models
 from models.alexnet import AlexNet
 from models.ResNet50 import ResNet50TP
-from models.RL_model import Agent
+from models.RL_model import Agent as Agent_QL
+from models.RL_model_policygradient import Agent as Agent_PG
 
 def init_data_loaders(args, use_gpu=True):
     print("Initializing dataset {}".format(args.dataset))
@@ -88,13 +89,13 @@ def init_data_loaders_rl_training(args, use_gpu=True):
     )
 
     queryloader = DataLoader(
-        VideoDataset(dataset.query, seq_len=args.seq_len, sample='dense', transform=transform_test),
+        VideoDataset(dataset.query, seq_len=1, sample='dense', transform=transform_test),
         batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
         pin_memory=pin_memory, drop_last=False,
     )
 
     galleryloader = DataLoader(
-        VideoDataset(dataset.gallery, seq_len=args.seq_len, sample='dense', transform=transform_test),
+        VideoDataset(dataset.gallery, seq_len=1, sample='dense', transform=transform_test),
         batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
         pin_memory=pin_memory, drop_last=False,
     )
@@ -120,7 +121,15 @@ def init_model(args, num_train_pids):
 
 def init_model_rl_training(args, num_train_pids):
     base_model = init_model(args, num_train_pids)
-    agent_model = Agent(base_model, args)
+
+    if args.rl_algo == 'ql':
+        print('creating agent for Q learning')
+        agent_model = Agent_QL(base_model, args)
+    elif args.rl_algo == 'pg':
+        print('creating agent for Policy gradient')
+        agent_model = Agent_PG(base_model, args)
+    else:
+        assert False, 'unknown rl algo ' + args.rl_algo
 
     # pretrained model loading
     if args.pretrained_model_rl is not None:
@@ -128,9 +137,10 @@ def init_model_rl_training(args, num_train_pids):
     
     return agent_model
 
-def train(model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu, args):
+def train(vis, model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu, args):
     model.train()
-    losses = AverageMeter()
+    losses = AverageMeter(vis, 'loss vs. iterations', 'loss', 'iterations')
+    total_loss = 0
 
     for batch_idx, (imgs, pids, _) in enumerate(tqdm(trainloader)):
         if use_gpu:
@@ -147,9 +157,12 @@ def train(model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu
         loss.backward()
         optimizer.step()
         losses.update(loss.item(), pids.size(0))
+        total_loss += loss.item()
 
         if (batch_idx+1) % args.print_freq == 0:
             print("Batch {}/{}\t Loss {:.6f} ({:.6f})".format(batch_idx+1, len(trainloader), losses.val, losses.avg))
+    
+    print('total loss:', total_loss)
 
 
 def test(model, queryloader, galleryloader, use_gpu, args, ranks=[1, 5, 10, 20]):

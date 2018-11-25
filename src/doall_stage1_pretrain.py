@@ -9,6 +9,7 @@ from torch.optim import lr_scheduler
 # import other miscellaneous things
 from cmd_options_parser import stage1_parse_cmd_options
 from losses import CrossEntropyLabelSmooth, TripletLoss
+import utils
 from utils import set_default_device, init_logger, get_currenttime_prefix, save_checkpoint
 from project_utils import init_data_loaders, init_model, train, test
 
@@ -51,16 +52,17 @@ if __name__ == '__main__':
     # if only evaluation was needed
     if args.evaluate:
         print("Evaluate only")
-        test(model, queryloader, galleryloader, use_gpu, args)
+        test(vis, model, queryloader, galleryloader, use_gpu, args)
         exit(0)
 
     start_time = time.time()
     best_rank1 = -np.inf
 
+    vis = utils.get_visdom_for_current_run(args.save_dir, 'stage1_pretraining')
     for epoch in range(start_epoch, args.max_epoch):
         print("==> Epoch {}/{}".format(epoch+1, args.max_epoch))
         
-        train(model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu, args)
+        train(vis, model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu, args)
         
         if args.stepsize > 0: scheduler.step()
         

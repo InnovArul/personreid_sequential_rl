@@ -46,9 +46,9 @@ def set_default_device(args):
 
 def init_logger(args):
     if not args.evaluate:
-        sys.stdout = Logger(osp.join(args.save_dir, 'log_train.txt'))
+        sys.stdout = Logger(osp.join(args.save_dir, args.prefix + '_log_train.txt'))
     else:
-        sys.stdout = Logger(osp.join(args.save_dir, 'log_test.txt'))
+        sys.stdout = Logger(osp.join(args.save_dir, args.prefix + '_log_test.txt'))
 
     print("\nArgs:{}\n".format(args))
     
@@ -133,21 +133,25 @@ def get_features(model, imgs, test_num_tracks):
 
     # handle chunked data
     all_features = []
+    # print(imgs.shape)
     for test_imgs in mit.chunked(imgs, test_num_tracks):
         current_test_imgs = torch.stack(test_imgs)
         num_current_test_imgs = current_test_imgs.shape[0]
         video_features, _ = model(current_test_imgs)
+        # print(current_test_imgs.shape, video_features.shape)
         video_features = video_features.view(num_current_test_imgs, -1)
         all_features.append(video_features)
     
-    return torch.cat(all_features)
+    all_features = torch.cat(all_features)
+    # print(all_features.shape)
+    return all_features
 
-def get_visdom_for_current_run(run_name):
+def get_visdom_for_current_run(path, run_name):
     envname = get_currenttime_prefix() + '_' + run_name
     vis = visdom.Visdom(env=envname)    
 
     # log file name
-    vis.log_to_filename = os.path.join('../scratch', envname)
+    vis.log_to_filename = os.path.join(path, envname)
     
     return vis
 

@@ -12,11 +12,8 @@ class AlexNet(nn.Module):
         alexnet = torchvision.models.alexnet(pretrained=True)
         
         # feature extractor
-        self.base = nn.Sequential(*list(alexnet.features.children()))
-        self.base_featuresummary = nn.Sequential(nn.Dropout(0.5),
-                                                 nn.Linear(3072, 1024),
-                                                 nn.ReLU(inplace=True))
-        self.feat_dim = 1024
+        self.base = alexnet.features
+        self.feat_dim = 256
 
         # classifier
         self.classifier = nn.Linear(self.feat_dim, num_classes)
@@ -28,8 +25,7 @@ class AlexNet(nn.Module):
 
         # collect individual frame features and global video features by avg pooling
         spatial_out = self.base(x)
-        vectorized_spatial_features = spatial_out.view(b*t, -1)
-        individual_img_features = self.base_featuresummary(vectorized_spatial_features)
+        individual_img_features = F.avg_pool2d(spatial_out, spatial_out.shape[2:]).view(b*t, -1)
 
         # format into video, sequence way
         individual_img_features = individual_img_features.view(b, t, -1)

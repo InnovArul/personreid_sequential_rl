@@ -17,6 +17,7 @@ from tqdm import tqdm
 if __name__ == '__main__':
     # parse commandline arguments
     args = stage2_parse_cmd_options()
+    args.rl_algo = 'pg'
 
     # set the seed for reproducibility
     torch.manual_seed(args.seed)
@@ -27,34 +28,30 @@ if __name__ == '__main__':
     if args.pretrained_model is not None:
         args.save_dir = os.path.dirname(args.pretrained_model)
 
-    # init the logger
     init_logger(args)
 
     # data loading
+    # init the logger
     dataset, trainloader, queryloader, galleryloader = init_data_loaders_rl_training(args)
     num_train_pids = dataset.num_train_pids
 
     # init model
     model = init_model_rl_training(args, num_train_pids)
-    vis = utils.get_visdom_for_current_run(args.save_dir, 'stage2_rl_training')
+    vis = utils.get_visdom_for_current_run(args.save_dir, args.prefix + '_stage2_rl_training')
 
     # average meters for losses and rewards
-    avg_datacoll_reward_meter = utils.AverageMeter(vis, 'data collection rewards', 'epoch', 'rewards')
     avg_train_loss_meter = utils.AverageMeter(vis, 'train loss', 'epoch', 'loss')
     avg_test_reward_meter = utils.AverageMeter(vis, 'test rewards', 'epoch', 'rewards')
     
     for epoch in tqdm(range(args.max_epoch)):
         print('epoch #', epoch)
-        # in each epoch, collect data
-        print("collecting data\n")
-        average_data_collection_reward = model.collect_data(trainloader, epoch, args)
+
         # train the network
         print("training\n")
-        average_train_loss = model.train(args=args, num_runs=args.num_train_iterations)
+        average_train_loss = model.train(dataloader=trainloader, args=args)
 
         # logistics
-        print(average_data_collection_reward, average_train_loss)
-        avg_datacoll_reward_meter.update(average_data_collection_reward, len(trainloader))
+        print('train loss', average_train_loss)
         avg_train_loss_meter.update(average_train_loss, args.num_train_iterations)   
 
         if (epoch+1) % args.save_step == 0 or (epoch+1) == args.max_epoch:
@@ -71,4 +68,4 @@ if __name__ == '__main__':
             print("testing\n")
             cmc = model.test(queryloader, galleryloader, args)
             avg_test_reward_meter.update(cmc, 1) 
-            print(average_data_collection_reward, average_train_loss, cmc)
+            print(average_train_loss, cmc)
