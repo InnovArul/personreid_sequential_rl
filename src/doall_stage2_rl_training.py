@@ -43,7 +43,7 @@ if __name__ == '__main__':
     avg_train_loss_meter = utils.AverageMeter(vis, 'train loss', 'epoch', 'loss')
     avg_test_reward_meter = utils.AverageMeter(vis, 'test rewards', 'epoch', 'rewards')
     
-    for epoch in tqdm(range(args.max_epoch)):
+    for epoch in tqdm(range(args.start_epoch, args.max_epoch)):
         print('epoch #', epoch)
         # in each epoch, collect data
         print("collecting data\n")

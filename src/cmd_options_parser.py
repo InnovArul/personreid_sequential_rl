@@ -75,7 +75,7 @@ def stage2_parse_cmd_options():
     parser.add_argument('--start-epoch', default=0, type=int, help="manual epoch number (useful on restarts)")
     parser.add_argument('--train-batch', default=1, type=int, help="train batch size")
     parser.add_argument('--test-batch', default=1, type=int, help="has to be 1") 
-    parser.add_argument('--num-train-iterations', default=100000, type=int, help="train iterations") 
+    parser.add_argument('--num-train-iterations', default=1200, type=int, help="train iterations") 
     parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float, help="initial learning rate, use 0.0001 for rnn, use 0.0003 for pooling and attention")
     parser.add_argument('--stepsize', default=400, type=int, help="stepsize to decay learning rate (>0 means this is enabled)")
     parser.add_argument('--gamma', default=0.1, type=float, help="learning rate decay")

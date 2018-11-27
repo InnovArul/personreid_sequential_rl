@@ -9,8 +9,8 @@ from aenum import Enum, MultiValue
 from utils import get_features
 from eval_metrics import evaluate
 
-MEMORY_CAPACITY = 5000
-BATCH_SIZE = 16
+MEMORY_CAPACITY = 10000
+BATCH_SIZE = 128
 
 LAMBDA = 0.0001    # speed of decay
 MAX_EPSILON = 1
@@ -32,7 +32,8 @@ class Environment:
     '''
     A gym-like environment for handling person-reid sequential multishot decision  making
     '''
-    def __init__(self, person1, person2, rp, tmax = 4):
+    def __init__(self, person1, person2, rp, tmax = 8):
+        # print('tmax', tmax)
         self.person1 = person1
         self.person2 = person2
         # features of size #persons x #frames x #featdim
@@ -229,6 +230,8 @@ class Brain(nn.Module):
         self.state_action_value = nn.Sequential(
             nn.Linear(nStateDim, 128),
             nn.ReLU(inplace=True),
+            nn.Linear(128, 128),
+            nn.ReLU(inplace=True),            
             nn.Linear(128, nActions)
         )
 
@@ -287,13 +290,14 @@ class Agent(nn.Module):
             float -- epsilon value
         '''
 
-        self.epsilon = 1 - (epoch - 1) * 0.1
-        self.epsilon = max(0.05, self.epsilon)
+        self.epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * np.exp(-LAMBDA * self.steps)
+        # 1 - (epoch - 1) * 0.1
+        # self.epsilon = max(0.05, self.epsilon)
         # MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * np.exp(-LAMBDA * self.steps)
-        # self.steps += 1
+        self.steps += 1
         return self.epsilon
 
-    def play_one_episode(self, epoch, is_test=False):
+    def play_one_episode(self, epoch=0, is_test=False):
         '''play one episode of cart pole
         
         Keyword Arguments:
@@ -315,6 +319,8 @@ class Agent(nn.Module):
             epsilon = 0
             if not is_test:
                 epsilon = self.get_epsilon(epoch)
+            else:
+                epsilon = 0
             
             # print(current_state.shape)
             action, q_values = self.act(current_state, epsilon)
