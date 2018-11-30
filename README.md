@@ -4,6 +4,14 @@ An independent attempt to replicate the paper "Multi-shot Pedestrian Re-identifi
 
 ## Prerequisites
 
+```
+torchvision
+torch >= 0.4.0
+visdom
+tqdm
+more-itertools
+```
+
 ## Data preparation
 To prepare data under './data' folder, refer [DATASET](https://github.com/KaiyangZhou/deep-person-reid/blob/master/DATASETS.md) preparation from [deep-person-reid](https://github.com/KaiyangZhou/deep-person-reid) repository. 
 
