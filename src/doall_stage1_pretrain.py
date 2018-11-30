@@ -26,6 +26,7 @@ if __name__ == '__main__':
     if args.pretrained_model is not None:
         args.save_dir = os.path.dirname(args.pretrained_model)
 
+
     # init the logger
     init_logger(args)
 
@@ -37,6 +38,7 @@ if __name__ == '__main__':
     model = init_model(args, num_train_pids)
     if use_gpu:
         model = nn.DataParallel(model).cuda()
+    vis = utils.get_visdom_for_current_run(args.save_dir, args.prefix + '_stage1_training')
 
     # init objective functions
     criterion_xent = CrossEntropyLabelSmooth(num_classes=num_train_pids, use_gpu=use_gpu)
@@ -52,7 +54,7 @@ if __name__ == '__main__':
     # if only evaluation was needed
     if args.evaluate:
         print("Evaluate only")
-        test(vis, model, queryloader, galleryloader, use_gpu, args)
+        test(model, queryloader, galleryloader, use_gpu, args)
         exit(0)
 
     start_time = time.time()

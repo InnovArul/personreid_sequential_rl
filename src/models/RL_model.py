@@ -230,8 +230,8 @@ class Brain(nn.Module):
         self.state_action_value = nn.Sequential(
             nn.Linear(nStateDim, 128),
             nn.ReLU(inplace=True),
-            nn.Linear(128, 128),
-            nn.ReLU(inplace=True),            
+            # nn.Linear(128, 128),
+            # nn.ReLU(inplace=True),            
             nn.Linear(128, nActions)
         )
 

@@ -49,20 +49,20 @@ def init_data_loaders(args, use_gpu=True):
     )
 
     queryloader = DataLoader(
-        VideoDataset(dataset.query, seq_len=args.seq_len, sample='dense', transform=transform_test),
+        VideoDataset(dataset.query, seq_len=args.seq_len, sample='random', transform=transform_test),
         batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
         pin_memory=pin_memory, drop_last=False,
     )
 
     galleryloader = DataLoader(
-        VideoDataset(dataset.gallery, seq_len=args.seq_len, sample='dense', transform=transform_test),
+        VideoDataset(dataset.gallery, seq_len=args.seq_len, sample='random', transform=transform_test),
         batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
         pin_memory=pin_memory, drop_last=False,
     )
 
     return dataset, trainloader, queryloader, galleryloader
 
-def init_data_loaders_rl_training(args, use_gpu=True):
+def init_data_loaders_rl_training(args, use_gpu=True, test_shuffle=False):
     print("Initializing dataset {}".format(args.dataset))
     dataset = data_manager.init_dataset(name=args.dataset)
 
@@ -90,13 +90,13 @@ def init_data_loaders_rl_training(args, use_gpu=True):
 
     queryloader = DataLoader(
         VideoDataset(dataset.query, seq_len=1, sample='dense', transform=transform_test),
-        batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
+        batch_size=args.test_batch, shuffle=test_shuffle, num_workers=args.workers,
         pin_memory=pin_memory, drop_last=False,
     )
 
     galleryloader = DataLoader(
         VideoDataset(dataset.gallery, seq_len=1, sample='dense', transform=transform_test),
-        batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
+        batch_size=args.test_batch, shuffle=test_shuffle, num_workers=args.workers,
         pin_memory=pin_memory, drop_last=False,
     )
 
@@ -177,6 +177,9 @@ def test(model, queryloader, galleryloader, use_gpu, args, ranks=[1, 5, 10, 20])
         with torch.no_grad():
             #imgs = Variable(imgs, volatile=True)
             # b=1, n=number of clips, s=16
+            if imgs.ndimension() <= 5:
+                imgs = imgs.unsqueeze(0)
+
             b, n, s, c, h, w = imgs.size()
             assert(b==1)
             imgs = imgs.view(b*n, s, c, h, w)
@@ -201,6 +204,9 @@ def test(model, queryloader, galleryloader, use_gpu, args, ranks=[1, 5, 10, 20])
             imgs = imgs.cuda()
 
         with torch.no_grad():
+            if imgs.ndimension() <= 5:
+                imgs = imgs.unsqueeze(0)
+                
             b, n, s, c, h, w = imgs.size()
             imgs = imgs.view(b*n, s , c, h, w)
             assert(b==1)
