@@ -90,59 +90,6 @@ class TripletLoss(nn.Module):
         loss = self.ranking_loss(dist_an, dist_ap, y)
         return loss
 
-
-class TripletLoss_WeightedNorm(nn.Module):
-    """Triplet loss with hard positive/negative mining.
-
-    Reference:
-    Hermans et al. In Defense of the Triplet Loss for Person Re-Identification. arXiv:1703.07737.
-
-    Code imported from https://github.com/Cysu/open-reid/blob/master/reid/loss/triplet.py.
-
-    Args:
-        margin (float): margin for triplet.
-    """
-    def __init__(self, feat_dim, margin=0.3):
-        super(TripletLoss, self).__init__()
-        self.margin = margin
-        self.feat_dim = feat_dim
-        self.weights = nn.Parameter(torch.randn(self.feat_dim))
-        self.ranking_loss = nn.MarginRankingLoss(margin=margin)
-
-    def forward(self, inputs, targets):
-        """
-        Args:
-            inputs: feature matrix with shape (batch_size, feat_dim)
-            targets: ground truth labels with shape (num_classes)
-        """
-        n, seq_len, feat_dim = inputs.shape
-        assert feat_dim == self.feat_dim
-        weights = torch.sqrt(self.weights[None, None, :]).repeat(n, seq_len, 1)
-        inputs = inputs * weights
-
-        # Compute pairwise distance, replace by the official when merged
-        dist = torch.pow(inputs, 2).sum(dim=1, keepdim=True).expand(n, n)
-        dist = dist + dist.t()
-        dist.addmm_(1, -2, inputs, inputs.t())
-        dist = dist.clamp(min=1e-12).sqrt()  # for numerical stability
-        # For each anchor, find the hardest positive and negative
-        mask = targets.expand(n, n).eq(targets.expand(n, n).t())
-        dist_ap, dist_an = [], []
-        for i in range(n):
-            dist_ap.append(dist[i][mask[i]].max())
-            dist_an.append(dist[i][mask[i] == 0].min())
-
-        dist_ap = torch.stack(dist_ap)
-        dist_an = torch.stack(dist_an)
-        
-        # Compute ranking hinge loss
-        y = dist_an.data.new()
-        y.resize_as_(dist_an.data)
-        y.fill_(1)
-        y = Variable(y)
-        loss = self.ranking_loss(dist_an, dist_ap, y)
-        return loss
-
 class CenterLoss(nn.Module):
     """Center loss.
     
