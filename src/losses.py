@@ -44,77 +44,6 @@ class CrossEntropyLabelSmooth(nn.Module):
         loss = (- targets * log_probs).mean(0).sum()
         return loss
 
-
-class CosegLoss(nn.Module):
-    """Cosegmentation loss
-
-    Args:
-        num_classes (int): number of classes.
-        seq_len (int): number of image frames per sequence
-    """
-    def __init__(self):
-        super(CosegLoss, self).__init__()
-
-    def mean_l2(self, vec1, vec2):
-        return torch.mean(torch.pow(vec1 - vec2, 2))
-
-    def mask_loss(self, fg1, bg1, fg2, bg2):
-        fg_mean_diff = self.mean_l2(fg1, fg2)
-        fg_bg_mean_diff = (self.mean_l2(fg1, bg1) + self.mean_l2(fg2, bg2)) / 2
-        current_diff_bt_diff = fg_bg_mean_diff - fg_mean_diff
-        return -torch.log(torch.sigmoid(current_diff_bt_diff))
-        
-    def forward(self, fg_features, bg_features):
-        """
-        Args:
-            inputs: fg features, bg features of size (batch * seq_len, feat_dim)
-        """
-        num_persons, num_frames, feat_dim = fg_features.shape
-        total_loss = []
-    
-        for b in range(num_persons):
-            current_sequence_loss = []
-            for i in range(num_frames):
-                fg_i = fg_features[b][i]
-                bg_i = bg_features[b][i]
-
-                for j in range(num_frames):
-                    fg_j = fg_features[b][j]
-                    bg_j = bg_features[b][j]
-                    current_sequence_loss.append(self.mask_loss(fg_i, bg_i, fg_j, bg_j))
-
-            total_loss.append(torch.stack(current_sequence_loss).sum())
-    
-        loss = torch.stack(total_loss).sum()
-        # print('non eff', loss)
-
-        # efficient computations
-        fg_norm = torch.sum(torch.pow(fg_features, 2), dim=2, keepdim=True)
-        repeated_fg_norm = fg_norm.repeat(1, 1, num_frames)
-
-        bg_norm = torch.sum(torch.pow(bg_features, 2), dim=2, keepdim=True)
-
-        fg_mutual_distance = torch.abs(repeated_fg_norm + 
-                                       repeated_fg_norm.transpose(1,2) - 
-                                       2 * (fg_features @ fg_features.transpose(1,2)))
-
-        fg_bg_pairwise_distance = torch.abs(fg_norm + bg_norm - 2 * torch.sum((fg_features * bg_features), dim=2, keepdim=True))
-        # print(fg_bg_pairwise_distance.shape)
-        fg_bg_pairwise_distance = fg_bg_pairwise_distance.repeat(1, 1, num_frames)
-        # print(fg_bg_pairwise_distance.shape)
-        fg_bg_pairwise_distance = fg_bg_pairwise_distance + fg_bg_pairwise_distance.transpose(1,2)
-        # print(fg_bg_pairwise_distance.shape)
-
-        # normalize
-        fg_mutual_distance = fg_mutual_distance / (feat_dim)
-        fg_bg_pairwise_distance = fg_bg_pairwise_distance / (2 * feat_dim)
-
-        log_loss = -torch.log(torch.sigmoid(fg_bg_pairwise_distance - fg_mutual_distance))
-        log_loss = log_loss.sum()
-        # print('eff', log_loss)
-
-        return log_loss 
-
 class TripletLoss(nn.Module):
     """Triplet loss with hard positive/negative mining.
 
@@ -138,59 +67,6 @@ class TripletLoss(nn.Module):
             targets: ground truth labels with shape (num_classes)
         """
         n = inputs.size(0)
-        # Compute pairwise distance, replace by the official when merged
-        dist = torch.pow(inputs, 2).sum(dim=1, keepdim=True).expand(n, n)
-        dist = dist + dist.t()
-        dist.addmm_(1, -2, inputs, inputs.t())
-        dist = dist.clamp(min=1e-12).sqrt()  # for numerical stability
-        # For each anchor, find the hardest positive and negative
-        mask = targets.expand(n, n).eq(targets.expand(n, n).t())
-        dist_ap, dist_an = [], []
-        for i in range(n):
-            dist_ap.append(dist[i][mask[i]].max())
-            dist_an.append(dist[i][mask[i] == 0].min())
-
-        dist_ap = torch.stack(dist_ap)
-        dist_an = torch.stack(dist_an)
-        
-        # Compute ranking hinge loss
-        y = dist_an.data.new()
-        y.resize_as_(dist_an.data)
-        y.fill_(1)
-        y = Variable(y)
-        loss = self.ranking_loss(dist_an, dist_ap, y)
-        return loss
-
-
-class TripletLoss_WeightedNorm(nn.Module):
-    """Triplet loss with hard positive/negative mining.
-
-    Reference:
-    Hermans et al. In Defense of the Triplet Loss for Person Re-Identification. arXiv:1703.07737.
-
-    Code imported from https://github.com/Cysu/open-reid/blob/master/reid/loss/triplet.py.
-
-    Args:
-        margin (float): margin for triplet.
-    """
-    def __init__(self, feat_dim, margin=0.3):
-        super(TripletLoss, self).__init__()
-        self.margin = margin
-        self.feat_dim = feat_dim
-        self.weights = nn.Parameter(torch.randn(self.feat_dim))
-        self.ranking_loss = nn.MarginRankingLoss(margin=margin)
-
-    def forward(self, inputs, targets):
-        """
-        Args:
-            inputs: feature matrix with shape (batch_size, feat_dim)
-            targets: ground truth labels with shape (num_classes)
-        """
-        n, seq_len, feat_dim = inputs.shape
-        assert feat_dim == self.feat_dim
-        weights = torch.sqrt(self.weights[None, None, :]).repeat(n, seq_len, 1)
-        inputs = inputs * weights
-
         # Compute pairwise distance, replace by the official when merged
         dist = torch.pow(inputs, 2).sum(dim=1, keepdim=True).expand(n, n)
         dist = dist + dist.t()
